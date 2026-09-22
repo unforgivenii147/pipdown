@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-unearth
-A utility to fetch and download python packages
-Refactored as a single-file package
-:author: Frost Ming <mianghong@gmail.com>
-:license: MIT
-"""
 
 from __future__ import annotations
 
@@ -110,9 +103,6 @@ try:
 except ModuleNotFoundError:
     REQUESTS_AVAILABLE = False
 
-# ============================================================================
-# Constants
-# ============================================================================
 WINDOWS = sys.platform == "win32"
 KEYRING_DISABLED = False
 _netrc_warned = False
@@ -147,13 +137,10 @@ if REQUESTS_AVAILABLE:
 logger = logging.getLogger(__name__)
 
 
-# ============================================================================
-# Type Definitions
-# ============================================================================
 T = TypeVar("T")
 _V = TypeVar("_V", bound="type[VersionControl]")
-AuthInfo = Tuple[str, str]
-MaybeAuth = Optional[Tuple[str, Optional[str]]]
+AuthInfo = tuple[str, str]
+MaybeAuth = Optional[tuple[str, Optional[str]]]
 
 if TYPE_CHECKING:
     import ssl
@@ -170,16 +157,11 @@ if TYPE_CHECKING:
         def __call__(self, link: "Link", completed: int, total: int | None) -> None: ...
 
     class UnpackReporter(Protocol):
-        def __call__(
-            self, filename: Path, completed: int, total: int | None
-        ) -> None: ...
+        def __call__(self, filename: Path, completed: int, total: int | None) -> None: ...
 else:
     Source = dict
 
 
-# ============================================================================
-# Utility Functions
-# ============================================================================
 def parse_query(query: str) -> dict[str, str]:
     return {k: v[0] for k, v in urlparse_module.parse_qs(query).items()}
 
@@ -212,18 +194,14 @@ def parse_netloc(netloc: str) -> tuple[str, int | None]:
 
 
 def url_to_path(url: str) -> Path:
-    assert url.startswith("file:"), (
-        f"You can only turn file: urls into filenames (not {url!r})"
-    )
+    assert url.startswith("file:"), f"You can only turn file: urls into filenames (not {url!r})"
     _, netloc, path, _, _ = urlsplit(url)
     if not netloc or netloc == "localhost":
         netloc = ""
     elif WINDOWS:
         netloc = "\\\\" + netloc
     else:
-        raise ValueError(
-            f"non-local file URIs are not supported on this platform: {url!r}"
-        )
+        raise ValueError(f"non-local file URIs are not supported on this platform: {url!r}")
     path = url2pathname(netloc + path)
     if (
         WINDOWS
@@ -335,9 +313,7 @@ def get_netrc_auth(url: str) -> tuple[str, str] | None:
         return None
     except (NetrcParseError, OSError) as e:  # type: ignore[misc]
         if not _netrc_warned:
-            logger.warning(
-                "Couldn't parse netrc because of %s: %s", type(e).__name__, e
-            )
+            logger.warning("Couldn't parse netrc because of %s: %s", type(e).__name__, e)
             _netrc_warned = True
         return None
     info = authenticator.authenticators(hostname)
@@ -383,9 +359,6 @@ def fix_legacy_specifier(specifier: str) -> str:
     return _legacy_specifier_re.sub(fix_wildcard, specifier)
 
 
-# ============================================================================
-# LazySequence
-# ============================================================================
 class LazySequence(Sequence[T]):
     def __init__(self, data: Iterable[T]) -> None:
         self._inner = data
@@ -414,9 +387,6 @@ class LazySequence(Sequence[T]):
         raise IndexError("Index out of range")
 
 
-# ============================================================================
-# Response / Fetcher Protocols
-# ============================================================================
 class Response(Protocol):
     status_code: int
     headers: Mapping[str, str]
@@ -437,26 +407,17 @@ class Response(Protocol):
 
 
 class Fetcher(Protocol):
-    def get(
-        self, url: str, *, headers: Mapping[str, str] | None = None
-    ) -> Response: ...
+    def get(self, url: str, *, headers: Mapping[str, str] | None = None) -> Response: ...
 
-    def head(
-        self, url: str, *, headers: Mapping[str, str] | None = None
-    ) -> Response: ...
+    def head(self, url: str, *, headers: Mapping[str, str] | None = None) -> Response: ...
 
-    def get_stream(
-        self, url: str, *, headers: Mapping[str, str] | None = None
-    ) -> ContextManager[Response]: ...
+    def get_stream(self, url: str, *, headers: Mapping[str, str] | None = None) -> ContextManager[Response]: ...
 
     def __hash__(self) -> int: ...
 
     def iter_secure_origins(self) -> Iterable[tuple[str, str, str]]: ...
 
 
-# ============================================================================
-# FileByteStream / LocalFSTransport
-# ============================================================================
 class FileByteStream(IteratorByteStream):
     def close(self) -> None:
         self._stream.close()
@@ -535,9 +496,7 @@ class PyPIClient(httpx.Client):
             **kwargs,
         )
 
-    def get_stream(
-        self, url: str, *, headers: Mapping[str, str] | None = None
-    ) -> ContextManager[httpx.Response]:
+    def get_stream(self, url: str, *, headers: Mapping[str, str] | None = None) -> ContextManager[httpx.Response]:
         return self.stream("GET", url, headers=headers)
 
     def iter_secure_origins(self) -> Iterable[tuple[str, str, str]]:
@@ -546,9 +505,6 @@ class PyPIClient(httpx.Client):
             yield ("*", host, "*" if port is None else str(port))
 
 
-# ============================================================================
-# Errors
-# ============================================================================
 class URLError(ValueError):
     pass
 
@@ -562,9 +518,7 @@ class UnpackError(RuntimeError):
 
 
 class HashMismatchError(UnpackError):
-    def __init__(
-        self, link: "Link", expected: dict[str, list[str]], actual: dict[str, str]
-    ) -> None:
+    def __init__(self, link: "Link", expected: dict[str, list[str]], actual: dict[str, str]) -> None:
         self.link = link
         self.expected = expected
         self.actual = actual
@@ -583,9 +537,6 @@ class HashMismatchError(UnpackError):
         )
 
 
-# ============================================================================
-# Link
-# ============================================================================
 @dc.dataclass
 class Link:
     url: str
@@ -611,9 +562,7 @@ class Link:
             "comes_from": self.comes_from,
             "yank_reason": self.yank_reason,
             "requires_python": self.requires_python,
-            "metadata": self.dist_info_link.url_without_fragment
-            if self.dist_info_link
-            else None,
+            "metadata": self.dist_info_link.url_without_fragment if self.dist_info_link else None,
         }
 
     def __ident(self) -> tuple:
@@ -689,9 +638,7 @@ class Link:
 
     @property
     def hash_name(self) -> str | None:
-        return next(
-            (name for name in SUPPORTED_HASHES if name in self._fragment_dict), None
-        )
+        return next((name for name in SUPPORTED_HASHES if name in self._fragment_dict), None)
 
     @property
     def hash(self) -> str | None:
@@ -712,9 +659,6 @@ class Link:
         return None
 
 
-# ============================================================================
-# VCS Support
-# ============================================================================
 class HiddenText:
     def __init__(self, secret: str, redacted: str) -> None:
         self.secret = secret
@@ -778,9 +722,7 @@ class VersionControl(abc.ABC):
         drive, _ = os.path.splitdrive(repo)
         return repo.startswith(os.path.sep) or bool(drive)
 
-    def get_url_and_rev_options(
-        self, link: Link
-    ) -> tuple[HiddenText, str | None, list[str | HiddenText]]:
+    def get_url_and_rev_options(self, link: Link) -> tuple[HiddenText, str | None, list[str | HiddenText]]:
         parsed = link.parsed
         scheme = parsed.scheme.rsplit("+", 1)[-1]
         netloc, user, password = self.get_netloc_and_auth(parsed.netloc, scheme)
@@ -810,9 +752,7 @@ class VersionControl(abc.ABC):
         url, rev, args = self.get_url_and_rev_options(link)
         if not location.exists():
             return self.fetch_new(location, url, rev, args)
-        if not self.is_repository_dir(location) or not compare_urls(
-            url.secret, self.get_remote_url(location)
-        ):
+        if not self.is_repository_dir(location) or not compare_urls(url.secret, self.get_remote_url(location)):
             if not self.is_repository_dir(location):
                 logger.debug(f"{location} is not a repository directory, removing it.")
             else:
@@ -838,9 +778,7 @@ class VersionControl(abc.ABC):
     ) -> None: ...
 
     @abc.abstractmethod
-    def update(
-        self, location: Path, rev: str | None, args: list[str | HiddenText]
-    ) -> None: ...
+    def update(self, location: Path, rev: str | None, args: list[str | HiddenText]) -> None: ...
 
     @abc.abstractmethod
     def get_remote_url(self, location: Path) -> str: ...
@@ -860,14 +798,10 @@ class VersionControl(abc.ABC):
     def is_repository_dir(self, location: Path) -> bool:
         return location.joinpath(self.dir_name).exists()
 
-    def get_netloc_and_auth(
-        self, netloc: str, scheme: str
-    ) -> tuple[str, str | None, str | None]:
+    def get_netloc_and_auth(self, netloc: str, scheme: str) -> tuple[str, str | None, str | None]:
         return (netloc, None, None)
 
-    def make_auth_args(
-        self, user: str | None, password: HiddenText | None
-    ) -> list[str | HiddenText]:
+    def make_auth_args(self, user: str | None, password: HiddenText | None) -> list[str | HiddenText]:
         return []
 
 
@@ -892,9 +826,6 @@ class VcsSupport:
 vcs_support = VcsSupport()
 
 
-# ============================================================================
-# Git VCS Backend
-# ============================================================================
 @vcs_support.register
 class Git(VersionControl):
     name = "git"
@@ -977,9 +908,7 @@ class Git(VersionControl):
         else:
             return True
 
-    def update(
-        self, location: Path, rev: str | None, args: list[str | HiddenText]
-    ) -> None:
+    def update(self, location: Path, rev: str | None, args: list[str | HiddenText]) -> None:
         self.run_command(["fetch", "-q", "--tags"], cwd=location)
         if rev is not None:
             if self._should_fetch(location, rev):
@@ -1008,9 +937,7 @@ class Git(VersionControl):
         try:
             found_remote = remotes[0]
         except IndexError:
-            raise UnpackError(
-                f"Remote not found for {display_path(location)}"
-            ) from None
+            raise UnpackError(f"Remote not found for {display_path(location)}") from None
         for remote in remotes:
             if remote.startswith("remote.origin.url "):
                 found_remote = remote
@@ -1060,9 +987,6 @@ class Git(VersionControl):
         return self.is_commit_hash_equal(location, rev)
 
 
-# ============================================================================
-# Mercurial VCS Backend
-# ============================================================================
 @vcs_support.register
 class Mercurial(VersionControl):
     name = "hg"
@@ -1088,9 +1012,7 @@ class Mercurial(VersionControl):
         self.run_command(["clone", "--noupdate", *flags, url, str(location)])
         self.run_command(["update", *flags, *self.get_rev_args(rev)], cwd=location)
 
-    def update(
-        self, location: Path, rev: str | None, args: list[str | HiddenText]
-    ) -> None:
+    def update(self, location: Path, rev: str | None, args: list[str | HiddenText]) -> None:
         self.run_command(["pull", "-q"], cwd=location)
         cmd_args = ["update", "-q", *self.get_rev_args(rev)]
         self.run_command(cmd_args, cwd=location)
@@ -1116,9 +1038,6 @@ class Mercurial(VersionControl):
         return url.strip()
 
 
-# ============================================================================
-# Bazaar VCS Backend
-# ============================================================================
 @vcs_support.register
 class Bazaar(VersionControl):
     name = "bzr"
@@ -1151,9 +1070,7 @@ class Bazaar(VersionControl):
         ]
         self.run_command(cmd_args)
 
-    def update(
-        self, location: Path, rev: str | None, args: list[str | HiddenText]
-    ) -> None:
+    def update(self, location: Path, rev: str | None, args: list[str | HiddenText]) -> None:
         self.run_command(["pull", "-q", *self.get_rev_args(rev)], cwd=location)
 
     def get_remote_url(self, location: Path) -> str:
@@ -1182,9 +1099,7 @@ class Bazaar(VersionControl):
         ).stdout
         return revision.splitlines()[-1]
 
-    def get_url_and_rev_options(
-        self, link: Link
-    ) -> tuple[HiddenText, str | None, list[str | HiddenText]]:
+    def get_url_and_rev_options(self, link: Link) -> tuple[HiddenText, str | None, list[str | HiddenText]]:
         hidden_url, rev, args = super().get_url_and_rev_options(link)
         if hidden_url.secret.startswith("ssh://"):
             hidden_url.secret = f"bzr+{hidden_url.secret}"
@@ -1192,9 +1107,6 @@ class Bazaar(VersionControl):
         return (hidden_url, rev, args)
 
 
-# ============================================================================
-# Subversion VCS Backend
-# ============================================================================
 _svn_xml_url_re = re.compile(r'url="([^"]+)"')
 _svn_rev_re = re.compile(r'committed-rev="(\d+)"')
 _svn_info_xml_rev_re = re.compile(r'\s*revision="(\d+)"')
@@ -1213,9 +1125,7 @@ class Subversion(VersionControl):
     name = "svn"
     dir_name = ".svn"
 
-    def get_netloc_and_auth(
-        self, netloc: str, scheme: str
-    ) -> tuple[str, str | None, str | None]:
+    def get_netloc_and_auth(self, netloc: str, scheme: str) -> tuple[str, str | None, str | None]:
         if scheme == "ssh":
             return (netloc, None, None)
         user_pass, netloc = split_auth_from_netloc(netloc)
@@ -1226,9 +1136,7 @@ class Subversion(VersionControl):
     def get_rev_args(self, rev: str | None) -> list[str]:
         return ["-r", rev] if rev is not None else []
 
-    def make_auth_args(
-        self, user: str | None, password: HiddenText | None
-    ) -> list[str | HiddenText]:
+    def make_auth_args(self, user: str | None, password: HiddenText | None) -> list[str | HiddenText]:
         args: list[str | HiddenText] = []
         if user is not None:
             args.extend(["--username", user])
@@ -1259,9 +1167,7 @@ class Subversion(VersionControl):
         ]
         self.run_command(cmd_args)
 
-    def update(
-        self, location: Path, rev: str | None, args: list[str | HiddenText]
-    ) -> None:
+    def update(self, location: Path, rev: str | None, args: list[str | HiddenText]) -> None:
         cmd_args: list[str] = [
             "update",
             "--non-interactive",
@@ -1277,8 +1183,7 @@ class Subversion(VersionControl):
             location = location.parent
             if location == last_location:
                 raise UnpackError(
-                    f"Could not find Python project for directory {orig_location} "
-                    "(tried all parent directories)"
+                    f"Could not find Python project for directory {orig_location} (tried all parent directories)"
                 )
         url, _ = self._get_svn_url_rev(location)
         if url is None:
@@ -1344,9 +1249,6 @@ class Subversion(VersionControl):
         return (url, rev)
 
 
-# ============================================================================
-# PEP 425 Tags
-# ============================================================================
 _osx_arch_pat = re.compile(r"(.+)_(\d+)_(\d+)_(.+)")
 
 
@@ -1359,10 +1261,7 @@ def _mac_platforms(arch: str) -> list[str]:
     if match:
         name, major, minor, actual_arch = match.groups()
         mac_version = (int(major), int(minor))
-        arches = [
-            "{}_{}".format(name, arch[len("macosx_") :])
-            for arch in mac_platforms(mac_version, actual_arch)
-        ]
+        arches = ["{}_{}".format(name, arch[len("macosx_") :]) for arch in mac_platforms(mac_version, actual_arch)]
     else:
         arches = [arch]
     return arches
@@ -1437,13 +1336,9 @@ def get_supported(
     platforms = _expand_allowed_platforms(platforms)
     is_cpython = (impl or interpreter_name()) == "cp"
     if is_cpython:
-        supported.extend(
-            cpython_tags(python_version=python_version, abis=abis, platforms=platforms)
-        )
+        supported.extend(cpython_tags(python_version=python_version, abis=abis, platforms=platforms))
     else:
-        supported.extend(
-            generic_tags(interpreter=interpreter, abis=abis, platforms=platforms)
-        )
+        supported.extend(generic_tags(interpreter=interpreter, abis=abis, platforms=platforms))
     supported.extend(
         compatible_tags(
             python_version=python_version,
@@ -1454,9 +1349,6 @@ def get_supported(
     return supported
 
 
-# ============================================================================
-# Evaluator
-# ============================================================================
 def is_equality_specifier(specifier: SpecifierSet) -> bool:
     return any((s.operator in ("==", "===") for s in specifier))
 
@@ -1488,9 +1380,7 @@ class TargetPython:
                 py_version = None
             else:
                 py_version = "".join(map(str, self.py_ver[:2]))
-            self._valid_tags = get_supported(
-                py_version, self.platforms, self.impl, self.abis
-            )
+            self._valid_tags = get_supported(py_version, self.platforms, self.impl, self.abis)
         return self._valid_tags
 
 
@@ -1530,9 +1420,7 @@ class FormatControl:
         if link.is_wheel and "binary" not in allowed_formats:
             raise LinkMismatchError(f"binary wheel is not allowed for {project_name}")
         if not link.is_wheel and "source" not in allowed_formats:
-            raise LinkMismatchError(
-                f"source distribution is not allowed for {project_name}"
-            )
+            raise LinkMismatchError(f"source distribution is not allowed for {project_name}")
 
 
 @dc.dataclass
@@ -1555,26 +1443,18 @@ class Evaluator:
     def check_upload_time(self, link: Link) -> None:
         if self.exclude_newer_than is not None:
             if link.upload_time is None:
-                raise LinkMismatchError(
-                    "Upload time is not available but exclude_newer_than is set"
-                )
+                raise LinkMismatchError("Upload time is not available but exclude_newer_than is set")
             if link.upload_time > self.exclude_newer_than:
-                raise LinkMismatchError(
-                    f"Upload time is newer than {self.exclude_newer_than}"
-                )
+                raise LinkMismatchError(f"Upload time is newer than {self.exclude_newer_than}")
 
     def check_requires_python(self, link: Link) -> None:
         if not self.ignore_compatibility and link.requires_python:
             py_ver = self.target_python.py_ver or sys.version_info[:2]
             py_version = ".".join((str(v) for v in py_ver))
             try:
-                requires_python = SpecifierSet(
-                    fix_legacy_specifier(link.requires_python)
-                )
+                requires_python = SpecifierSet(fix_legacy_specifier(link.requires_python))
             except InvalidSpecifier as e:
-                raise LinkMismatchError(
-                    f"Invalid requires-python: {link.requires_python}"
-                ) from e
+                raise LinkMismatchError(f"Invalid requires-python: {link.requires_python}") from e
             if not requires_python.contains(py_version, True):
                 raise LinkMismatchError(
                     "The target python version({}) doesn't match the requires-python specifier {}".format(
@@ -1607,9 +1487,7 @@ class Evaluator:
                 except (InvalidWheelFilename, InvalidVersion) as e:
                     raise LinkMismatchError(str(e)) from None
                 if self._canonical_name != wheel_info[0]:
-                    raise LinkMismatchError(
-                        f"The package name doesn't match {wheel_info[0]}"
-                    )
+                    raise LinkMismatchError(f"The package name doesn't match {wheel_info[0]}")
                 self.check_wheel_tags(link.filename)
                 version = str(wheel_info[1])
             else:
@@ -1620,29 +1498,19 @@ class Evaluator:
                     if not ext:
                         raise LinkMismatchError(f"Not a file: {link.filename}")
                     if ext not in ARCHIVE_EXTENSIONS:
-                        raise LinkMismatchError(
-                            f"Unsupported archive format: {link.filename}"
-                        )
-                LOOSE_FILENAME = os.getenv(
-                    "UNEARTH_LOOSE_FILENAME", "false"
-                ).lower() in (
+                        raise LinkMismatchError(f"Unsupported archive format: {link.filename}")
+                LOOSE_FILENAME = os.getenv("UNEARTH_LOOSE_FILENAME", "false").lower() in (
                     "1",
                     "true",
                 )
                 if LOOSE_FILENAME:
-                    version = parse_version_from_egg_info(
-                        egg_info, self._canonical_name
-                    )
+                    version = parse_version_from_egg_info(egg_info, self._canonical_name)
                     if version is None:
-                        raise LinkMismatchError(
-                            f"Missing version in the filename: {egg_info}"
-                        )
+                        raise LinkMismatchError(f"Missing version in the filename: {egg_info}")
                 else:
                     filename_prefix, has_version, version = egg_info.rpartition("-")
                     if not has_version:
-                        raise LinkMismatchError(
-                            f"Missing version in the filename: {egg_info}"
-                        )
+                        raise LinkMismatchError(f"Missing version in the filename: {egg_info}")
                     if canonicalize_name(filename_prefix) != self._canonical_name:
                         raise LinkMismatchError(
                             f"The package name doesn't match {egg_info}, "
@@ -1651,9 +1519,7 @@ class Evaluator:
                 try:
                     Version(version)
                 except InvalidVersion:
-                    raise LinkMismatchError(
-                        f"Invalid version in the filename {egg_info}: {version}"
-                    ) from None
+                    raise LinkMismatchError(f"Invalid version in the filename {egg_info}: {version}") from None
         except LinkMismatchError as e:
             logger.debug("Skipping link %s: %s", link, e)
             return None
@@ -1673,11 +1539,7 @@ def evaluate_package(
                 requirement.name,
             )
             return False
-    if package.version and (
-        not requirement.specifier.contains(
-            package.version, prereleases=allow_prereleases
-        )
-    ):
+    if package.version and (not requirement.specifier.contains(package.version, prereleases=allow_prereleases)):
         logger.debug(
             "Skipping package %s: version doesn't match %s",
             package,
@@ -1720,9 +1582,6 @@ def validate_hashes(
     return given_hash in allowed_hashes
 
 
-# ============================================================================
-# Collector
-# ============================================================================
 class LinkCollectError(Exception):
     pass
 
@@ -1789,9 +1648,7 @@ def parse_html_page(page: IndexPage) -> Iterable[Link]:
         url = urlparse_module.urljoin(base_url, href)
         requires_python = anchor.get("data-requires-python")
         yank_reason = anchor.get("data-yanked")
-        metadata_hash = anchor.get(
-            "data-core-metadata", anchor.get("data-dist-info-metadata")
-        )
+        metadata_hash = anchor.get("data-core-metadata", anchor.get("data-dist-info-metadata"))
         dist_info_metadata: bool | dict[str, str] | None = None
         if metadata_hash:
             hash_name, has_hash, hash_value = metadata_hash.partition("=")
@@ -1869,8 +1726,7 @@ def _get_html_response(
 def _ensure_index_response(session: Fetcher, location: Link) -> None:
     if location.parsed.scheme not in {"http", "https"}:
         raise LinkCollectError(
-            "NotHTTP: the file looks like an archive but its content-type "
-            "cannot be checked by a HEAD request."
+            "NotHTTP: the file looks like an archive but its content-type cannot be checked by a HEAD request."
         )
     resp = session.head(location.url)
     _check_for_status(resp)
@@ -1899,8 +1755,7 @@ def _ensure_index_content_type(resp: "Response") -> None:
     if content_type_l.startswith(SUPPORTED_CONTENT_TYPES):
         return
     raise LinkCollectError(
-        f"Content-Type unsupported: {content_type}. "
-        f"The only supported are {', '.join(SUPPORTED_CONTENT_TYPES)}."
+        f"Content-Type unsupported: {content_type}. The only supported are {', '.join(SUPPORTED_CONTENT_TYPES)}."
     )
 
 
@@ -1957,9 +1812,7 @@ def collect_links_from_location(
                 for child in path.iterdir():
                     file_url = child.as_uri()
                     if _is_html_file(file_url):
-                        yield from _collect_links_from_index(
-                            session, Link(file_url), headers
-                        )
+                        yield from _collect_links_from_index(session, Link(file_url), headers)
                     else:
                         yield Link(file_url)
             else:
@@ -1975,9 +1828,6 @@ def collect_links_from_location(
         yield from _collect_links_from_index(session, location)
 
 
-# ============================================================================
-# Auth
-# ============================================================================
 class KeyringBaseProvider(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_auth_info(self, url: str, username: str | None) -> AuthInfo | None: ...
@@ -2048,9 +1898,7 @@ class KeyringCliProvider(KeyringBaseProvider):
     ) -> str | None:
         cmd = [self.keyring, f"--mode={mode}", "get", service_name, username]
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
-        res = subprocess.run(
-            cmd, stdin=subprocess.DEVNULL, capture_output=True, env=env
-        )
+        res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, env=env)
         if res.returncode:
             return None
         return res.stdout.decode("utf-8").strip(os.linesep)
@@ -2072,9 +1920,7 @@ def get_keyring_provider() -> KeyringBaseProvider | None:
     except ImportError:
         pass
     except Exception as exc:
-        logger.warning(
-            "Importing keyring failed: %s, trying to find a keyring executable.", exc
-        )
+        logger.warning("Importing keyring failed: %s, trying to find a keyring executable.", exc)
     keyring_cmd = shutil.which("keyring")
     if keyring_cmd is not None:
         return KeyringCliProvider(keyring_cmd)
@@ -2158,22 +2004,16 @@ class MultiDomainBasicAuth(httpx.Auth):
                 logger.debug("Found credentials in netrc for %s", netloc)
                 return cast(AuthInfo, netrc_auth)
         if allow_keyring:
-            kr_auth = get_keyring_auth(index_url, username) or get_keyring_auth(
-                netloc, username
-            )
+            kr_auth = get_keyring_auth(index_url, username) or get_keyring_auth(netloc, username)
             if kr_auth:
                 logger.debug("Found credentials in keyring for %s", netloc)
                 return kr_auth
         return (username, password)
 
-    def _get_url_and_credentials(
-        self, original_url: str
-    ) -> tuple[str, str | None, str | None]:
+    def _get_url_and_credentials(self, original_url: str) -> tuple[str, str | None, str | None]:
         _, url = split_auth_from_url(original_url)
         netloc = urlparse(url).netloc
-        username, password = self._get_new_credentials(
-            original_url, allow_netrc=True, allow_keyring=False
-        )
+        username, password = self._get_new_credentials(original_url, allow_netrc=True, allow_keyring=False)
         if (username is None or password is None) and netloc in self._cached_passwords:
             un, pw = self._cached_passwords[netloc]
             if username is None or username == un:
@@ -2192,9 +2032,7 @@ class MultiDomainBasicAuth(httpx.Auth):
         req.register_hook("response", self.handle_401)
         return req
 
-    def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         url, username, password = self._get_url_and_credentials(str(request.url))
         request.url = httpx.URL(url)
         if username is not None and password is not None:
@@ -2203,9 +2041,7 @@ class MultiDomainBasicAuth(httpx.Auth):
         response = yield request
         if response.status_code != 401:
             return
-        username, password = self._get_new_credentials(
-            url, allow_netrc=False, allow_keyring=True
-        )
+        username, password = self._get_new_credentials(url, allow_netrc=False, allow_keyring=True)
         save = False
         netloc = response.url.netloc.decode()
         if password is None:
@@ -2227,9 +2063,7 @@ class MultiDomainBasicAuth(httpx.Auth):
         if self._credentials_to_save:
             self.save_credentials(response)
 
-    def _prompt_for_password(
-        self, netloc: str, username: str | None = None
-    ) -> tuple[str | None, str | None, bool]:
+    def _prompt_for_password(self, netloc: str, username: str | None = None) -> tuple[str | None, str | None, bool]:
         if username is None:
             username = input(f"User for {netloc}: ")
             auth = get_keyring_auth(netloc, username)
@@ -2253,17 +2087,13 @@ class MultiDomainBasicAuth(httpx.Auth):
         if resp.status_code != 401:
             return resp
         parsed = urlparse(cast(str, resp.url))
-        username, password = self._get_new_credentials(
-            resp.url, allow_netrc=False, allow_keyring=True
-        )
+        username, password = self._get_new_credentials(resp.url, allow_netrc=False, allow_keyring=True)
         save = False
         if password is None:
             if not self.prompting:
                 return resp
             if _expect_argument(self._prompt_for_password, "username"):
-                username, password, save = self._prompt_for_password(
-                    parsed.netloc, username
-                )
+                username, password, save = self._prompt_for_password(parsed.netloc, username)
             else:
                 username, password, save = self._prompt_for_password(parsed.netloc)
         self._credentials_to_save = None
@@ -2281,9 +2111,7 @@ class MultiDomainBasicAuth(httpx.Auth):
         new_resp.history.append(resp)
         return new_resp
 
-    def warn_on_401(
-        self, resp: "httpx.Response | RequestsResponse", **kwargs: Any
-    ) -> None:
+    def warn_on_401(self, resp: "httpx.Response | RequestsResponse", **kwargs: Any) -> None:
         if resp.status_code == 401:
             logger.warning(
                 "%s Error, Credentials not correct for %s",
@@ -2291,9 +2119,7 @@ class MultiDomainBasicAuth(httpx.Auth):
                 resp.request.url,
             )
 
-    def save_credentials(
-        self, resp: "httpx.Response | RequestsResponse", **kwargs: Any
-    ) -> None:
+    def save_credentials(self, resp: "httpx.Response | RequestsResponse", **kwargs: Any) -> None:
         keyring_provider = get_keyring_provider()
         assert keyring_provider is not None, "should never reach here without keyring"
         creds = self._credentials_to_save
@@ -2306,9 +2132,6 @@ class MultiDomainBasicAuth(httpx.Auth):
                 logger.exception("Failed to save credentials")
 
 
-# ============================================================================
-# Preparer
-# ============================================================================
 def noop_download_reporter(link: Link, completed: int, total: int | None) -> None:
     pass
 
@@ -2336,9 +2159,7 @@ def is_within_directory(directory: str | Path, path: str | Path) -> bool:
 
 def split_leading_dir(path: str) -> list[str]:
     path = path.lstrip("/").lstrip("\\")
-    if "/" in path and (
-        "\\" in path and path.find("/") < path.find("\\") or "\\" not in path
-    ):
+    if "/" in path and ("\\" in path and path.find("/") < path.find("\\") or "\\" not in path):
         return path.split("/", 1)
     elif "\\" in path:
         return path.split("\\", 1)
@@ -2505,11 +2326,7 @@ def unpack_archive(
     reporter: "UnpackReporter" = noop_unpack_reporter,
 ) -> None:
     content_type = mimetypes.guess_type(str(archive))[0]
-    if (
-        content_type == "application/zip"
-        or zipfile.is_zipfile(archive)
-        or archive.suffix.lower() in ZIP_EXTENSIONS
-    ):
+    if content_type == "application/zip" or zipfile.is_zipfile(archive) or archive.suffix.lower() in ZIP_EXTENSIONS:
         _unzip_archive(archive, dest, reporter=reporter)
     elif (
         content_type == "application/x-gzip"
@@ -2587,9 +2404,6 @@ def unpack_link(
     return location
 
 
-# ============================================================================
-# Finder
-# ============================================================================
 class BestMatch(NamedTuple):
     best: Package | None
     applicable: Sequence[Package]
@@ -2644,16 +2458,12 @@ class PackageFinder:
         self.verbosity = verbosity
         self.exclude_newer_than = exclude_newer_than
         self.headers: dict[str, str] = {}
-        self._tag_priorities = {
-            tag: i for i, tag in enumerate(self.target_python.supported_tags())
-        }
+        self._tag_priorities = {tag: i for i, tag in enumerate(self.target_python.supported_tags())}
 
     @property
     def session(self) -> Fetcher:
         if self._session is None:
-            index_urls = [
-                source["url"] for source in self.sources if source["type"] == "index"
-            ]
+            index_urls = [source["url"] for source in self.sources if source["type"] == "index"]
             session = PyPIClient(trusted_hosts=self.trusted_hosts)
             session.auth = MultiDomainBasicAuth(index_urls=index_urls)
             atexit.register(session.close)
@@ -2666,12 +2476,8 @@ class PackageFinder:
     def add_find_links(self, url: str) -> None:
         self.sources.append({"url": url, "type": "find_links"})
 
-    def build_evaluator(
-        self, package_name: str, allow_yanked: bool = False
-    ) -> Evaluator:
-        format_control = FormatControl(
-            no_binary=self.no_binary, only_binary=self.only_binary
-        )
+    def build_evaluator(self, package_name: str, allow_yanked: bool = False) -> Evaluator:
+        format_control = FormatControl(no_binary=self.no_binary, only_binary=self.only_binary)
         return Evaluator(
             package_name=package_name,
             target_python=self.target_python,
@@ -2692,9 +2498,7 @@ class PackageFinder:
             return Link(find_link)
         raise ValueError(f"Invalid find link or non-existing path: {find_link}")
 
-    def _evaluate_links(
-        self, links: Iterable[Link], evaluator: Evaluator
-    ) -> Iterable[Package]:
+    def _evaluate_links(self, links: Iterable[Link], evaluator: Evaluator) -> Iterable[Package]:
         return filter(None, map(evaluator.evaluate_link, links))
 
     def _evaluate_packages(
@@ -2711,18 +2515,12 @@ class PackageFinder:
         first_iter, second_iter = itertools.tee(packages)
         check, it = itertools.tee(filter(evaluator, first_iter))
         if next(check, None) is None and allow_prereleases is None:
-            evaluator = functools.partial(
-                evaluate_package, requirement=requirement, allow_prereleases=True
-            )
+            evaluator = functools.partial(evaluate_package, requirement=requirement, allow_prereleases=True)
             it = filter(evaluator, second_iter)
         return it
 
-    def _evaluate_hashes(
-        self, packages: Iterable[Package], hashes: dict[str, list[str]]
-    ) -> Iterable[Package]:
-        evaluator = functools.partial(
-            validate_hashes, hashes=hashes, session=self.session
-        )
+    def _evaluate_hashes(self, packages: Iterable[Package], hashes: dict[str, list[str]]) -> Iterable[Package]:
+        evaluator = functools.partial(validate_hashes, hashes=hashes, session=self.session)
         return filter(evaluator, packages)
 
     def _sort_key(self, package: Package) -> tuple:
@@ -2736,10 +2534,7 @@ class PackageFinder:
                 (self._tag_priorities.get(tag, pri - 1) for tag in file_tags),
                 default=pri - 1,
             )
-            if (
-                canonicalize_name(package.name) in self.prefer_binary
-                or ":all:" in self.prefer_binary
-            ):
+            if canonicalize_name(package.name) in self.prefer_binary or ":all:" in self.prefer_binary:
                 prefer_binary = True
         return (
             -int(link.is_yanked),
@@ -2749,26 +2544,20 @@ class PackageFinder:
             build_tag,
         )
 
-    def _find_packages(
-        self, package_name: str, allow_yanked: bool = False
-    ) -> Iterable[Package]:
+    def _find_packages(self, package_name: str, allow_yanked: bool = False) -> Iterable[Package]:
         evaluator = self.build_evaluator(package_name, allow_yanked)
 
         def find_one_source(source: Source) -> Iterable[Package]:
             if source["type"] == "index":
                 link = self._build_index_page_link(source["url"], package_name)
                 result = self._evaluate_links(
-                    collect_links_from_location(
-                        self.session, link, headers=self.headers
-                    ),
+                    collect_links_from_location(self.session, link, headers=self.headers),
                     evaluator,
                 )
             else:
                 link = self._build_find_link(source["url"])
                 result = self._evaluate_links(
-                    collect_links_from_location(
-                        self.session, link, expand=True, headers=self.headers
-                    ),
+                    collect_links_from_location(self.session, link, expand=True, headers=self.headers),
                     evaluator,
                 )
             if self.respect_source_order:
@@ -2786,11 +2575,7 @@ class PackageFinder:
         allow_yanked: bool = False,
         hashes: dict[str, list[str]] | None = None,
     ) -> Sequence[Package]:
-        return LazySequence(
-            self._evaluate_hashes(
-                self._find_packages(package_name, allow_yanked), hashes=hashes or {}
-            )
-        )
+        return LazySequence(self._evaluate_hashes(self._find_packages(package_name, allow_yanked), hashes=hashes or {}))
 
     def _find_packages_from_requirement(
         self,
@@ -2858,9 +2643,7 @@ class PackageFinder:
             hashes = link.hash_option
         with contextlib.ExitStack() as stack:
             if download_dir is None:
-                download_dir = stack.enter_context(
-                    TemporaryDirectory(prefix="unearth-download-")
-                )
+                download_dir = stack.enter_context(TemporaryDirectory(prefix="unearth-download-"))
             file = unpack_link(
                 self.session,
                 link,
@@ -2874,9 +2657,6 @@ class PackageFinder:
         return file.joinpath(link.subdirectory) if link.subdirectory else file
 
 
-# ============================================================================
-# CLI
-# ============================================================================
 @dc.dataclass(frozen=True)
 class CLIArgs:
     requirement: Requirement
@@ -2923,9 +2703,7 @@ def cli_parser() -> argparse.ArgumentParser:
         type=Requirement,
         help="A PEP 508 requirement string, e.g. 'requests>=2.18.4'.",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging."
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging.")
     parser.add_argument(
         "--index-url",
         "-i",
@@ -2964,9 +2742,7 @@ def cli_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Prefer binary packages even if sdist candidates of newer versions exist.",
     )
-    parser.add_argument(
-        "--all", action="store_true", help="Return all applicable versions."
-    )
+    parser.add_argument("--all", action="store_true", help="Return all applicable versions.")
     parser.add_argument(
         "--link-only",
         "-L",
@@ -3016,7 +2792,7 @@ def get_dest_for_package(dest: str, link: Link) -> str:
     return os.path.join(dest, fn)
 
 
-def cli(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = cli_parser()
     args = CLIArgs(**vars(parser.parse_args(argv)))
     _setup_logger(args.verbose)
@@ -3061,9 +2837,6 @@ def cli(argv: list[str] | None = None) -> None:
         print(json.dumps(result[0] if len(result) == 1 else result, indent=2))
 
 
-# ============================================================================
-# Exports
-# ============================================================================
 __all__ = [
     "BestMatch",
     "HashMismatchError",
@@ -3079,4 +2852,4 @@ __all__ = [
 ]
 
 if __name__ == "__main__":
-    cli()
+    sys.exit(main())
