@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: pipdown
+Version: 1.4.7
+Summary: Single-file pipdown CLI
+Home-page: https://github.com/"unforgivenii147"/pipdown
+Author: "Isaac Onagh"
+Author-email: "adnanonagh@gmail.com"
+Requires-Python: >=3.11
